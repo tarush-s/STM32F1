@@ -1,0 +1,21 @@
+#include "stm32f10x.h"
+#include "HAL_GPIO.h"
+
+int main()
+{
+ GPIO_Type mygpio;
+ mygpio.port=PORTC;
+ mygpio.pin=13;
+ mygpio.mode=OUTPUT_MODE;
+ mygpio.mode_type=OUTPUT_GEN_PURPOSE;
+ mygpio.speed=SPEED_10MGHZ;
+ gpio_init(mygpio);
+ 
+	while(1)
+	{
+		
+		for(int i=0;i<50000000; i++)
+		gpio_toggle(PORTC,13);
+	}
+	
+}
