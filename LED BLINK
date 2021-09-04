@@ -1,0 +1,20 @@
+#include "stm32f10x.h"
+
+int main()
+{
+// initialise clock for port c
+RCC->APB2ENR |=(1<<4);
+
+// configure pin 3 on port/gpio c
+GPIOC->CRH |= ((1<<20) | (1<<21)); //output at 50MGz
+GPIOC->CRH &= ~ ((1<<22) | (1<<23)); // general purpose output
+ 
+	while(1)
+	{
+		for(int i=0;i<50000000; i++)
+		GPIOC->BSRR = (1<<13); //set pin13 high
+		for(int i=0;i<50000000; i++)
+		GPIOC->BSRR = (1<<29);  // set pin13 low
+	}
+	
+}
