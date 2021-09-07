@@ -1,0 +1,37 @@
+#include "stm32f10x.h"
+#include "HAL_GPIO.h"
+
+int main()
+{
+	//enable alt function gpiob and tim4
+	RCC->APB2ENR |=RCC_APB2ENR_IOPBEN | RCC_APB2ENR_AFIOEN;
+	RCC->APB1ENR |=RCC_APB1ENR_TIM3EN;
+	
+	//config pin as alt function and output push-pull
+	GPIOB->CRH |= GPIO_CRH_MODE9_0 | GPIO_CRH_MODE9_1 | GPIO_CRH_CNF9_1;
+	GPIOB->CRH &=~(GPIO_CRH_CNF9_0);
+	
+	// pwm freq=fclk/psc/arr
+	//pwm duty =ccr4/arr
+	
+	TIM4->CCER |=TIM_CCER_CC4E;
+	
+	TIM14->CR1 |=TIM_CR1_ARPE;
+	TIM4->CCMR2 |= TIM_CCMR2_OC4M_1 | TIM_CCMR2_OC4M_2 | TIM_CCMR2_OC4PE;
+	
+	TIM4->PSC = 72;
+	TIM4->ARR = 1000; //frq of 1khz
+	TIM4->CCR4 = 250; // duty cycle of 25%
+	
+	TIM4->EGR |= TIM_EGR_UG;
+	TIM4->CR1 |=TIM_CR1_CEN;
+	
+	while(1)
+	{
+		
+		
+	
+	}
+		
+}
+
