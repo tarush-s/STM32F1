@@ -1,0 +1,48 @@
+#include "stm32f10x.h"
+#include "HAL_GPIO.h"
+void ports(void);
+void SysTick_Handler(void);
+void dms(int ms);
+
+int count=0;
+
+int main()
+{
+	
+	ports();
+  SysTick_Config(SystemCoreClock/1000);
+	
+	while(1)
+	{
+		
+		GPIOC->BSRR = (1<<13);    // SET pin13 HIGH
+		dms(1000);                //delay of 1 sec
+		GPIOC->BSRR = (1<<19);    // set pin13 low
+		dms(1000);                //delay of 1 sec
+	
+	}
+		
+}
+
+
+void ports()
+{ 
+	// initialise clock for port c
+RCC->APB2ENR |=(1<<4);
+
+// configure pin 13 on port/gpio c
+GPIOC->CRH |= ((1<<20) | (1<<21)); //output at 50MGz
+GPIOC->CRH &= ~ ((1<<22) | (1<<23)); // general purpose output
+}
+
+void SysTick_Handler(void)
+{
+	count++;
+}
+
+void dms(int ms)
+{
+	count=0;
+	while(count<ms)
+}
+
