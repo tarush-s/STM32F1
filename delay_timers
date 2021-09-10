@@ -1,0 +1,76 @@
+#include "stm32f10x.h"
+#include "HAL_GPIO.h"
+void ports(void);
+void TIM4_IRQHandler(void);
+void dms(int ms);
+void dus(int us);
+void delay_timer(void);
+int count=0;
+
+int main()
+{
+	delay_timer();
+	ports();
+
+	while(1)
+	{
+		
+		GPIOC->BSRR = (1<<13);    // SET pin13 HIGH
+		dms(1000);                //delay of 1sec
+		GPIOC->BSRR = (1<<19);    // set pin13 low
+		dms(1000);
+	
+	}
+		
+}
+
+
+void ports()
+{ 
+	// initialise clock for port c
+RCC->APB2ENR |=(1<<4);
+
+// configure pin 13 on port/gpio c
+GPIOC->CRH |= ((1<<20) | (1<<21)); //output at 50MGz
+GPIOC->CRH &= ~ ((1<<22) | (1<<23)); // general purpose output
+}
+
+
+void delay_timer()
+{
+	// enable tim4 clk 
+	RCC->APB1ENR |= RCC_APB1ENR_TIM4EN;
+	
+	//config tim4 
+	TIM4->PSC=0;
+	TIM4->ARR=144;            //1MGHZ freq
+	TIM4->CR1 |=TIM_CR1_URS;  //only counnter underflow/overflow generates interrupts
+	TIM4->DIER |=TIM_DIER_UIE;//UIE:update interrupt enable
+	TIM4->EGR |=TIM_EGR_UG;   //UG:upadte generation
+  NVIC_EnableIRQ(TIM4_IRQn);//abort enable IRQ line to tim4
+}
+
+
+void TIM4_IRQHandler(void)
+{
+	count++;
+	TIM4->SR &= ~(TIM_SR_UIF);
+}
+
+void dms(int ms)
+{
+	TIM4->CCR1 |=TIM_CR1_CEN; //enable timer
+	count=0;
+	while(count<(ms*1000));
+	TIM4->CR1 &=~(TIM_CR1_CEN); //disable timer
+}
+
+void dus(int us)
+{
+	TIM4->CCR1 |=TIM_CR1_CEN; //enable timer
+	count=0;
+	while(count<us);
+	TIM4->CR1 &=~(TIM_CR1_CEN);//disable timer
+}
+
+
