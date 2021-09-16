@@ -1,0 +1,139 @@
+#include "stm32f10x.h"
+#include "HAL_GPIO.h"
+// global variables 
+volatile int count=0;
+uint16_t samples[2]={0,0};
+// function protoype 
+void ports_init(void);
+void timer_init(void);
+void delay(int ms);
+void SysTick_Handler(void);
+
+int main()
+{
+	SysTick_Config(SystemCoreClock / 1000);
+	ports_init();
+	//chnage prescaler for adc to not exceed 14mghz
+	RCC->CFGR |= RCC_CFGR_ADCPRE_DIV6;
+	
+	
+	//rcc clocks for adc1 and alt function
+	RCC->APB2ENR |= RCC_APB2ENR_ADC1EN | RCC_APB2ENR_AFIOEN | RCC_APB2ENR_IOPAEN;
+	// enable dma1
+	RCC->AHBENR |= RCC_AHBENR_DMA1EN;
+	//config pinA5 & A7 as input push pull
+	GPIOA->CRL |= GPIO_CRL_CNF5_1;
+	GPIOA->CRL &=~(GPIO_CRL_CNF5_0);
+	
+	GPIOA->CRL |= GPIO_CRL_CNF7_1;
+	GPIOA->CRL &=~(GPIO_CRL_CNF7_0);
+	
+	//set the sampling rate
+	ADC1->SMPR2 |= ADC_SMPR2_SMP5_2 | ADC_SMPR2_SMP5_0 | ADC_SMPR2_SMP5_1;
+	ADC1->SMPR2 |= ADC_SMPR2_SMP7_2 | ADC_SMPR2_SMP7_0 | ADC_SMPR2_SMP7_1;
+	
+	//set the channel you want to convert in the sequence registers
+	ADC1->SQR3 |= ADC_SQR3_SQ1_0 | ADC_SQR3_SQ1_2; 
+	//length of 2 sequences 
+	ADC1->SQR1 |=1<<20;
+	ADC1->SQR3 |= 7<<5;
+	
+	//adc dma enable and scan
+	ADC1->CR1 |= ADC_CR1_SCAN;
+	ADC1->CR2 |=ADC_CR2_DMA;
+	
+	//dma setting
+	DMA1_Channel1->CPAR = (uint32_t)(&(ADC1->DR));
+	DMA1_Channel1->CMAR = (uint32_t)samples;
+	DMA1_Channel1->CNDTR =2;
+	DMA1_Channel1->CCR |= DMA_CCR1_CIRC | DMA_CCR1_MINC | DMA_CCR1_PSIZE_0 | DMA_CCR1_MSIZE_0;
+	DMA1_Channel1->CCR |= DMA_CCR1_EN;
+	
+		
+	//enable adc for first time and set it to continous mode
+	ADC1->CR2 |= ADC_CR2_ADON | ADC_CR2_CONT;
+	delay(1);
+	
+	//turn on adc for second time to actually turn it on 
+	ADC1->CR2 |= ADC_CR2_CAL;
+	delay(1);
+	
+	//run the calibration 
+	ADC1->CR2 |=ADC_CR2_CAL;
+	delay(2);
+	
+
+	while(1)
+	{
+    
+		TIM4->CCR4 =samples[0];
+		TIM1->CCR4 =samples[1];
+		
+		
+	
+	}
+		
+}
+
+void SysTick_Handler(void)
+{
+	count++;
+}
+
+void delay(int ms)
+{
+	count=0;
+	while(count<ms);
+}
+void timer_init()
+{
+	TIM4 -> PSC = 79; // PRESCALAR = 1MHz
+	TIM4 -> ARR = 2000; // AUTO RELOAD REGISTER
+	TIM4 -> CCR4 = 0; // CAPTURE/COMPARE REGISTER
+	   
+	TIM4 -> CCER |= TIM_CCER_CC4E; // OUTPUT POLARITY SET TO ACTIVE HIGH
+	TIM4 -> CR1 |= TIM_CR1_ARPE; // CR -> CONTROL REGISTER | ARPE -> AUTO RELOAD PRELOAD REGISTER | ARPE -> SET => TIMER COUNTER (TIM_CNT) IS BUFFERED
+	TIM4 -> CCMR2 |= TIM_CCMR2_OC4M_1 | TIM_CCMR2_OC4M_2; // OUPUT COMPARE 4 MODE SET AS PWM MODE 1
+	TIM4 -> CCMR2 |= TIM_CCMR2_OC4PE; // ENABLE THE CORRESPONDING PRELOAD REGISTER
+	
+	TIM4 -> EGR |= TIM_EGR_UG; // BEFORE STARTING TIMER -> INITIALIZE ALL REGISTERS
+	TIM4 -> CR1 |= TIM_CR1_CEN; // START TIMER
+	
+	TIM1 -> PSC = 79; // PRESCALAR = 1MHz
+	TIM1 -> ARR = 2000; // AUTO RELOAD REGISTER
+	TIM1 -> CCR4 = 0; // CAPTURE/COMPARE REGISTER
+	   
+	TIM1 -> CCER |= TIM_CCER_CC4E; // OUTPUT POLARITY SET TO ACTIVE HIGH
+	TIM1 -> CR1 |= TIM_CR1_ARPE; // CR -> CONTROL REGISTER | ARPE -> AUTO RELOAD PRELOAD REGISTER | ARPE -> SET => TIMER COUNTER (TIM_CNT) IS BUFFERED
+	TIM1 -> CCMR2 |= TIM_CCMR2_OC4M_1 | TIM_CCMR2_OC4M_2; // OUPUT COMPARE 4 MODE SET AS PWM MODE 1
+	TIM1 -> CCMR2 |= TIM_CCMR2_OC4PE; // ENABLE THE CORRESPONDING PRELOAD REGISTER
+	
+	TIM1 -> EGR |= TIM_EGR_UG; // BEFORE STARTING TIMER -> INITIALIZE ALL REGISTERS
+	TIM1 -> CR1 |= TIM_CR1_CEN; // START TIMER
+}
+void ports_init()
+{
+	// INITIALIZE TIMER 4 & timer 1| GPIOB | ENABLE ALT FUNCTION
+	RCC -> APB2ENR |= RCC_APB2ENR_IOPBEN | RCC_APB2ENR_AFIOEN;
+	RCC -> APB1ENR |= RCC_APB1ENR_TIM4EN;
+	RCC -> APB2ENR |= 1<<11;
+	
+	
+	// GPIOC | OUTPUT | PUSH-PULL MODE | MAX SPEED = 50Hz
+	GPIOB -> CRH |= GPIO_CRH_MODE9_0 | GPIO_CRH_MODE9_1 | GPIO_CRH_CNF9_1;
+	GPIOB -> CRH &= ~(GPIO_CRH_CNF9_0);
+	
+		GPIOA -> CRH |= GPIO_CRH_MODE11_0 | GPIO_CRH_MODE11_1 | GPIO_CRH_CNF11_1;
+	  GPIOA -> CRH &= ~(GPIO_CRH_CNF11_0);
+	
+		//config pinA5 & A7 as input push pull
+	GPIOA->CRL |= GPIO_CRL_CNF5_1;
+	GPIOA->CRL &=~(GPIO_CRL_CNF5_0);
+	
+	GPIOA->CRL |= GPIO_CRL_CNF7_1;
+	GPIOA->CRL &=~(GPIO_CRL_CNF7_0);
+	
+}
+
+
+
