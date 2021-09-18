@@ -1,0 +1,105 @@
+#include "stm32f10x.h"
+volatile static myTicks=0;
+
+//prototype start
+void spi(void);
+void ports(void);
+void SysTick_Handler(void);
+void delayMs(uint16_t ms);
+void send(uint8_t data);
+void CS_Disable (void);
+void CS_Enable (void);
+// prototype end
+
+int main()
+{
+
+	spi();
+	ports();
+	
+
+
+	while(1)
+	{
+
+		if(GPIOA -> IDR & 0x00000001) // IDR -> INPUT DATA REGISTER | CHECKING STATUS OF A0
+		{
+			CS_Enable();
+			send((uint8_t) '1');
+			CS_Disable();
+			delayMs(100);
+		}
+
+   
+	}
+
+
+}
+
+
+
+void ports(void)
+{
+	RCC->APB2ENR |=  (1<<2);  // Enable GPIOA clock
+	GPIOA->CRL = 0;
+	GPIOA->CRL |= (11U<<20);   // PA5 (SCK) AF output Push Pull
+	GPIOA->CRL |= (11U<<28);   // PA7 (MOSI) AF output Push Pull
+	GPIOA->CRL |= (1<<26);    // PA6 (MISO) Input mode (floating)
+	GPIOA->CRL |= (3<<16);    // PA4 used for CS, GPIO Output 
+	
+	GPIOA -> CRL &= 0xFFFFFFF0; // RESET PORT A TO 0
+	GPIOA -> CRL |= 0x8; // INPUT MODE | PUSH-PULL| PIN A0
+
+}
+void spi()
+{
+	RCC->APB2ENR |= (1<<12);  // Enable SPI1 CLock
+	
+  SPI1->CR1 |= (1<<0)|(1<<1);   // CPOL=1, CPHA=1
+	
+  SPI1->CR1 |= (1<<2);  // Master Mode
+	
+  SPI1->CR1 |= (3<<3);  // BR[2:0] = 011: fPCLK/16, PCLK2 = 80MHz, SPI clk = 5MHz
+	
+  SPI1->CR1 &= ~(1<<7);  // LSBFIRST = 0, MSB first
+	
+  SPI1->CR1 |= (1<<8) | (1<<9);  // SSM=1, SSi=1 -> Software Slave Management
+	
+  SPI1->CR1 &= ~(1<<10);  // RXONLY = 0, full-duplex
+	
+  SPI1->CR1 &= ~(1<<11);  // DFF=0, 8 bit data
+	
+  SPI1->CR2 = 0;
+}
+
+void send(uint8_t data)
+{
+   // Write data to be transmitted to the SPI data register
+    SPI1->DR = data;
+    // Wait until transmit complete
+    while (!(SPI1->SR & ((u16)(0x0002))));
+    // Wait until receive complete
+    while (!(SPI1->SR & ((u16)(0x0001))));
+    // Wait until SPI is not busy anymore
+    while (SPI1->SR & ((u16)(0x0080)));
+}
+void SysTick_Handler(void)
+{
+	myTicks++;
+}
+
+void delayMs(uint16_t ms)
+{
+	myTicks = 0;
+	while(myTicks<ms);
+}
+void CS_Enable (void)
+{
+	GPIOA->BSRR |= (1<<9)<<16;
+}
+
+void CS_Disable (void)
+{
+	GPIOA->BSRR |= (1<<9);
+}
+
