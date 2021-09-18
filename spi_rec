@@ -44,8 +44,8 @@ void ports(void)
 	RCC->APB2ENR |=  (1<<2);  // Enable GPIOA clock
 	GPIOA->CRL = 0;
 	GPIOA->CRL |= (11U<<20);   // PA5 (SCK) AF output Push Pull
-	GPIOA->CRL |= (11U<<28);   // PA7 (MOSI) AF output Push Pull
-	GPIOA->CRL |= (1<<26);    // PA6 (MISO) Input mode (floating)
+	GPIOA->CRL |= GPIO_CRL_CNF7_1;  // PA7 (MOSI) AF INPUT
+	GPIOA->CRL |= GPIO_CRL_MODE6 | GPIO_CRL_CNF6_1;    // PA6 (MISO) OUTPUT
 	GPIOA->CRL |= (3<<16);    // PA4 used for CS, GPIO Output 
 	
 	RCC -> APB2ENR |= 0x10; // ENABLE PORT C
@@ -59,7 +59,7 @@ void spi()
 	
   SPI1->CR1 |= (1<<0)|(1<<1);   // CPOL=1, CPHA=1
 	
-  SPI1->CR1 |= (1<<2);  // Master Mode
+  SPI1->CR1 &= ~(1<<2);  // slave mode Mode
 	
   SPI1->CR1 |= (3<<3);  // BR[2:0] = 011: fPCLK/16, PCLK2 = 80MHz, SPI clk = 5MHz
 	
