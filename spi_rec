@@ -57,6 +57,8 @@ void spi()
 {
 	RCC->APB2ENR |= (1<<12);  // Enable SPI1 CLock
 	
+
+  SP1->CR1 |=(1<<6);	
   SPI1->CR1 |= (1<<0)|(1<<1);   // CPOL=1, CPHA=1
 	
   SPI1->CR1 &= ~(1<<2);  // slave mode Mode
@@ -65,23 +67,20 @@ void spi()
 	
   SPI1->CR1 &= ~(1<<7);  // LSBFIRST = 0, MSB first
 	
-  SPI1->CR1 |= (1<<8) | (1<<9);  // SSM=1, SSi=1 -> Software Slave Management
+  SPI1->CR1 &=~(1<<9);  // SSM=1, SSi=1 -> Software Slave Management
 	
   SPI1->CR1 &= ~(1<<10);  // RXONLY = 0, full-duplex
 	
   SPI1->CR1 &= ~(1<<11);  // DFF=0, 8 bit data
 	
-  SPI1->CR2 = 0;
+  SPI1->CR2 |= (1<<2);
 }
 
 uint8_t recieve(void)
 {
-    // Wait until transmit complete
-    while (!(SPI1->SR & ((u16)(0x0002))));
+
     // Wait until receive complete
     while (!(SPI1->SR & ((u16)(0x0001))));
-    // Wait until SPI is not busy anymore
-    while (SPI1->SR & ((u16)(0x0080)));
 	    // Return received data from SPI data register
     return SPI1->DR;
 }
