@@ -1,13 +1,13 @@
 #include "stm32f10x.h"
 volatile static myTicks=0;
-uint8_t rec_data;
+char rec_data;
 
 //prototype start
 void spi(void);
 void ports(void);
 void SysTick_Handler(void);
 void delayMs(uint16_t ms);
-uint8_t recieve(void);
+char recieve(void);
 void CS_Disable (void);
 void CS_Enable (void);
 void blink (void);
@@ -26,7 +26,7 @@ int main()
 
 		rec_data=recieve();
 		
-		if(rec_data==0b00000001) // IDR -> INPUT DATA REGISTER | CHECKING STATUS OF A0
+		if(rec_data=='A') // IDR -> INPUT DATA REGISTER | CHECKING STATUS OF A0
 		{
 			blink();
 		}
@@ -47,7 +47,7 @@ void ports(void)
 	//slave mode 
 	RCC ->APB2ENR |= RCC_APB2ENR_IOPAEN;
 	GPIOA-> CRL |=(1<<25);
-	GPIOA->CRL  &=~(1<<24);
+	GPIOA->CRL  &=~(1u<<24);
 	GPIOA->CRL |= (1<<26) | (1<<27);
 	
 	
@@ -55,7 +55,7 @@ void ports(void)
 }
 void spi()
 {      
-        RCC->APB2ENR |= (1<<12);
+  RCC->APB2ENR |= (1<<12);
 	SPI1->CR1 &=~(1<<11);
 	SPI1->CR1 &=~(1<<1);
 	SPI1->CR1 &=~(1<<0);
@@ -63,18 +63,17 @@ void spi()
 	SPI1->CR1 &=~(1<<9);
 	SPI1->CR1 &=~(1<<2);
 	SPI1->CR1 |=(1<<6);
-        SPI1->CR1 |= (1<<10);
+  SPI1->CR1 |= (1<<10);
 }
 
-uint8_t recieve(void)
+char recieve(void)
 {
-
-    // Wait until receive complete
-    while ((SPI1->SR & ((u16)(0x0001))));
-
-	    // Return received data from SPI data register
-    return SPI1->DR;
-	      SPI1->SR &=~(1<<0);
+ char rx_val;
+  		while(SPI1->SR & 0x1)
+                  {
+                     rx_val = SPI1->DR;
+                  }
+ return rx_val;
 }
 void blink ()
 {
@@ -98,4 +97,3 @@ void delayMs(uint16_t ms)
 	myTicks = 0;
 	while(myTicks<ms);
 }
-
