@@ -56,14 +56,10 @@ void ports(void)
 void spi()
 {      
   RCC->APB2ENR |= (1<<12);
-	SPI1->CR1 &=~(1<<11);
-	SPI1->CR1 &=~(1<<1);
-	SPI1->CR1 &=~(1<<0);
-	SPI1->CR1 |=(1<<7);
-	SPI1->CR1 &=~(1<<9);
-	SPI1->CR1 &=~(1<<2);
-	SPI1->CR1 |=(1<<6);
-  SPI1->CR1 |= (1<<10);
+SPI1->CR1 &= ~(0x4); // Master Mode
+SPI1->CR1 |= 0x31; // fclk / 265
+SPI1->CR2 |= 0x4;
+SPI1->CR1 |= 0x40; // Enabling SPI SPI periph
 }
 
 char recieve(void)
