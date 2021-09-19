@@ -6,7 +6,7 @@ void spi(void);
 void ports(void);
 void SysTick_Handler(void);
 void delayMs(uint16_t ms);
-void send(uint8_t data);
+void send(char tx_char);
 void CS_Disable (void);
 void CS_Enable (void);
 // prototype end
@@ -25,7 +25,7 @@ int main()
 		if(GPIOA -> IDR & 0x00000001) // IDR -> INPUT DATA REGISTER | CHECKING STATUS OF A0
 		{
 			CS_Enable();
-			send((uint8_t) 1);
+			send('A');
 			CS_Disable();
 			delayMs(100);
 		}
@@ -62,21 +62,22 @@ void ports(void)
 void spi()
 {
 	RCC->APB2ENR |= (1<<12);  // Enable SPI1 CLock
-	SPI1->CR1|=(3<<3);
-	SPI1->CR1 &=~(1<<1);
-	SPI1->CR1 &=~(1<<0);
-	SPI1->CR1 |=(1<<7);
-	SPI1->CR1 &=~(1<<11);
-	SPI1->CR1 |= (1<<6) | (1<<2);
+//*******Setup SPI peripherals*****
+SPI1->CR1 |= 0x4; // Master Mode
+SPI1->CR1 |= 0x31; // fclk / 265
+SPI1->CR2 |= 0x4;
+SPI1->CR1 |= 0x40; // Enabling SPI SPI periph
 
  }
 
-void send(uint8_t data)
+void send(char tx_char)
 {
-   // Write data to be transmitted to the SPI data register
-    SPI1->DR = data;
-    // Wait until transmit complete
-    while (!(SPI1->SR & ((u16)(0x0002))));
+   {
+		CS_Enable();
+		SPI1->DR = tx_char;
+		while(SPI1->SR & 0x80){}
+		CS_Disable();
+	}
   
 }
 void SysTick_Handler(void)
@@ -91,10 +92,10 @@ void delayMs(uint16_t ms)
 }
 void CS_Enable (void)
 {
-	GPIOA->BSRR |= (1<<9)<<16;
+	GPIOA->BSRR |= (1<<4)<<16;
 }
 
 void CS_Disable (void)
 {
-	GPIOA->BSRR |= (1<<9);
+	GPIOA->BSRR |= (1<<4);
 }
