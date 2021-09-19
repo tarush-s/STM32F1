@@ -40,12 +40,20 @@ int main()
 
 void ports(void)
 {
-	RCC->APB2ENR |=  (1<<2);  // Enable GPIOA clock
-	GPIOA->CRL = 0;
-	GPIOA->CRL |= (11U<<20);   // PA5 (SCK) AF output Push Pull
-	GPIOA->CRL |= (11U<<28);   // PA7 (MOSI) AF output Push Pull
-	GPIOA->CRL |= (1<<26);    // PA6 (MISO) Input mode (floating)
-	GPIOA->CRL |= (3<<16);    // PA4 used for CS, GPIO Output 
+	RCC->APB2ENR |=  RCC_APB2ENR_IOPAEN;  // Enable GPIOA clock
+	
+	//spi ports
+	GPIOA->CRL |=(1<<21);
+	GPIOA->CRL &=~(1U<<20);
+	GPIOA->CRL |=(1<<22) | (1<<23);
+	
+	GPIOA->CRL |=(1<<29);
+	GPIOA->CRL &=~(1U<<28);
+	GPIOA->CRL |=(1<<30) | (1U<<31);
+	
+	
+	
+	
 	
 	GPIOA -> CRL &= 0xFFFFFFF0; // RESET PORT A TO 0
 	GPIOA -> CRL |= 0x8; // INPUT MODE | PUSH-PULL| PIN A0
@@ -54,24 +62,14 @@ void ports(void)
 void spi()
 {
 	RCC->APB2ENR |= (1<<12);  // Enable SPI1 CLock
-	
-  SPI1->CR1 |= (1<<0)|(1<<1);   // CPOL=1, CPHA=1
-  SPI->CR1 |=(1<<6);
-	
-  SPI1->CR1 |= (1<<2);  // Master Mode
-	
-  SPI1->CR1 |= (3<<3);  // BR[2:0] = 011: fPCLK/16, PCLK2 = 80MHz, SPI clk = 5MHz
-	
-  SPI1->CR1 &= ~(1<<7);  // LSBFIRST = 0, MSB first
-	
-  SPI1->CR1 &=~(1<<9);  // SSM=1, SSi=1 -> Software Slave Management
-	
-  SPI1->CR1 &= ~(1<<10);  // RXONLY = 0, full-duplex
-	
-  SPI1->CR1 &= ~(1<<11);  // DFF=0, 8 bit data
-	
-  SPI1->CR2 = (1<<2);
-}
+	SPI1->CR1|=(3<<3);
+	SPI1->CR1 &=~(1<<1);
+	SPI1->CR1 &=~(1<<0);
+	SPI1->CR1 |=(1<<7);
+	SPI1->CR1 &=~(1<<11);
+	SPI1->CR1 |= (1<<6) | (1<<2);
+
+ }
 
 void send(uint8_t data)
 {
@@ -100,4 +98,3 @@ void CS_Disable (void)
 {
 	GPIOA->BSRR |= (1<<9);
 }
-
