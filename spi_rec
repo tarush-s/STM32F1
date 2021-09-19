@@ -63,6 +63,7 @@ void spi()
 	SPI1->CR1 &=~(1<<9);
 	SPI1->CR1 &=~(1<<2);
 	SPI1->CR1 |=(1<<6);
+        SPI1->CR1 |= (1<<10);
 }
 
 uint8_t recieve(void)
