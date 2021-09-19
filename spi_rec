@@ -54,7 +54,8 @@ void ports(void)
 
 }
 void spi()
-{
+{      
+        RCC->APB2ENR |= (1<<12);
 	SPI1->CR1 &=~(1<<11);
 	SPI1->CR1 &=~(1<<1);
 	SPI1->CR1 &=~(1<<0);
