@@ -40,49 +40,39 @@ int main()
 
 
 void ports(void)
-{
-	RCC->APB2ENR |=  (1<<2);  // Enable GPIOA clock
-	GPIOA->CRL = 0;
-	GPIOA->CRL |= (11U<<20);   // PA5 (SCK) AF output Push Pull
-	GPIOA->CRL |= GPIO_CRL_CNF7_1;  // PA7 (MOSI) AF INPUT
-	GPIOA->CRL |= GPIO_CRL_MODE6 | GPIO_CRL_CNF6_1;    // PA6 (MISO) OUTPUT
-	GPIOA->CRL |= (3<<16);    // PA4 used for CS, GPIO Output 
-	
+{ //c13 output
 	RCC -> APB2ENR |= 0x10; // ENABLE PORT C
 	GPIOC -> CRH &= 0xFF0FFFFF; // RESET PIN 13
 	GPIOC -> CRH |= 0x00300000; // PIN 13 | OUTPUT MODE | MAX SPEED = 50Hz
+	//slave mode 
+	RCC ->APB2ENR |= RCC_APB2ENR_IOPAEN;
+	GPIOA-> CRL |=(1<<25);
+	GPIOA->CRL  &=~(1<<24);
+	GPIOA->CRL |= (1<<26) | (1<<27);
+	
+	
 
 }
 void spi()
 {
-	RCC->APB2ENR |= (1<<12);  // Enable SPI1 CLock
-	
-
-  SP1->CR1 |=(1<<6);	
-  SPI1->CR1 |= (1<<0)|(1<<1);   // CPOL=1, CPHA=1
-	
-  SPI1->CR1 &= ~(1<<2);  // slave mode Mode
-	
-  SPI1->CR1 |= (3<<3);  // BR[2:0] = 011: fPCLK/16, PCLK2 = 80MHz, SPI clk = 5MHz
-	
-  SPI1->CR1 &= ~(1<<7);  // LSBFIRST = 0, MSB first
-	
-  SPI1->CR1 &=~(1<<9);  // SSM=1, SSi=1 -> Software Slave Management
-	
-  SPI1->CR1 &= ~(1<<10);  // RXONLY = 0, full-duplex
-	
-  SPI1->CR1 &= ~(1<<11);  // DFF=0, 8 bit data
-	
-  SPI1->CR2 |= (1<<2);
+	SPI1->CR1 &=~(1<<11);
+	SPI1->CR1 &=~(1<<1);
+	SPI1->CR1 &=~(1<<0);
+	SPI1->CR1 |=(1<<7);
+	SPI1->CR1 &=~(1<<9);
+	SPI1->CR1 &=~(1<<2);
+	SPI1->CR1 |=(1<<6);
 }
 
 uint8_t recieve(void)
 {
 
     // Wait until receive complete
-    while (!(SPI1->SR & ((u16)(0x0001))));
+    while ((SPI1->SR & ((u16)(0x0001))));
+
 	    // Return received data from SPI data register
     return SPI1->DR;
+	      SPI1->SR &=~(1<<0);
 }
 void blink ()
 {
@@ -105,14 +95,5 @@ void delayMs(uint16_t ms)
 {
 	myTicks = 0;
 	while(myTicks<ms);
-}
-void CS_Enable (void)
-{
-	GPIOA->BSRR |= (1<<9)<<16;
-}
-
-void CS_Disable (void)
-{
-	GPIOA->BSRR |= (1<<9);
 }
 
