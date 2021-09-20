@@ -236,7 +236,7 @@ int main(void)
 		{
 			
 			TIM4->CCR2 = 0;
-			GPIOA->BSRR |= 1 << 5;
+			GPIOA->BRR |= 1 << 5;
 			TIM4->CCR1 = abs(X_val);
 			//GPIOA->BSRR |= 1 << 4;
 			//_delay_us(5);
@@ -264,7 +264,7 @@ int main(void)
 		else if(theta>-0.90f&&theta<-0.60f)                 //diagonal 4
 		{
 			TIM4->CCR1 = 0;
-			GPIOA->BSRR |= 1 << 5;
+			GPIOA->BRR |= 1 << 5;
 			TIM4->CCR2 = abs(X_val);
 			//GPIOA->BSRR |= 1 << 5;
 		}
