@@ -223,7 +223,7 @@ int main(void)
 		
 		
 		
-		if(abs(X_val)<90&&abs(Y_val)<90)                    //Buffer around centre
+		if(abs(X_val)<150&&abs(Y_val)<150)                    //Buffer around centre
 		{
 			TIM4->CCR1 = 0;
 			TIM4->CCR2 = 0;
