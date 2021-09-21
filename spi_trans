@@ -27,10 +27,7 @@ int main()
 		if(GPIOA -> IDR & 0x00000001) // IDR -> INPUT DATA REGISTER | CHECKING STATUS OF A0
 		{ 
 			CS_Enable();
-	    
-			
 			send('A');
-			blink();
 			CS_Disable();
 			delayMs(10);
 		}
