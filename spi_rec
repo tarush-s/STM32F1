@@ -15,7 +15,8 @@ void blink (void);
 
 int main()
 {
-
+  SysTick_Config(SystemCoreClock / 1000);
+	
 	spi();
 	ports();
 	
@@ -56,9 +57,10 @@ void ports(void)
 void spi()
 {      
   RCC->APB2ENR |= (1<<12);
-SPI1->CR1 &= ~(0x4); // Master Mode
+SPI1->CR1 |= (1<<10) | (1<<15);
+SPI1->CR1 &= ~(0x4); // Slave Mode
 SPI1->CR1 |= 0x31; // fclk / 265
-SPI1->CR2 |= 0x4;
+SPI1->CR2 |= (1<<0);
 SPI1->CR1 |= 0x40; // Enabling SPI SPI periph
 }
 
