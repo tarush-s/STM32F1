@@ -72,11 +72,10 @@ SPI1->CR1 |= 0x40; // Enabling SPI SPI periph
 
 void send(char tx_char)
 {
-   {
-		CS_Enable();
+        {
 		SPI1->DR = tx_char;
 		while(SPI1->SR & 0x80){}
-		CS_Disable();
+
 	}
   
 }
