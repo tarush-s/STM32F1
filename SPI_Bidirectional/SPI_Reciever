@@ -74,7 +74,6 @@ void ports(void)
 void spi()
 {      
   RCC->APB2ENR |= (1<<12);
-SPI1->CR1 |= (1<<15);
 SPI1->CR1 &= ~(0x4); // Slave Mode
 SPI1->CR1 |= 0x31; // fclk / 265
 SPI1->CR2 |= (1<<0);
