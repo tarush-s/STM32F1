@@ -6,7 +6,6 @@ void can_init(void);
 void ports(void);
 void SysTick_Handler(void);
 void dms(int ms);
-void SysTick_Handler(void);
 
 //variable prototypes 
 volatile static int count=0;
