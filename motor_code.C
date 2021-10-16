@@ -1,452 +1,255 @@
 #include "stm32f10x.h"
-
-#include "math.h"
 #include "stdlib.h"
-
-volatile int myTicks = 0;
-volatile uint16_t samples[2] ={ 0, 0 };
-int mapped(float k, float l, float h, float L, float H);
-void Ports(void);
-void PWM_init(void);
-void PWM_init(void);
-unsigned int ADC_read(int k);
-void ADC_Init(void);
-void dms(int ms);
-void SysTick_Handler(void);
-
-int mapped(float k, float l, float h, float L, float H)
-{
-	return ((k - l) / (h - l)) * (H - L) + L;
-}
-
-
-uint16_t x;
-uint16_t y;
-
+#include <stdarg.h>
+#include <string.h>
+#include <stdio.h>
+volatile static int count=0;
+int flag=0;
 void SysTick_Handler(void)
 {
-	myTicks++;
+	count++;
 }
 
 void dms(int ms)
 {
-	myTicks=0;
-	while(myTicks<ms);
+	count=0;
+	while(count<ms);
 }
-void Ports()
+void GPIO_Initialize()
 {
-	RCC->APB2ENR |= RCC_APB2ENR_IOPAEN;   // ENABLE CLOCK | PORT A
-	RCC->APB2ENR |= RCC_APB2ENR_IOPBEN;   // ENABLE CLOCK | PORT B
-	RCC->APB2ENR |= RCC_APB2ENR_AFIOEN;   // ENABLE ALTERNATE FUNCTION
 
-	// PORT A | PIN 1 | INPUT MODE | ANALOG INPUT
-	GPIOA->CRL &= ~(GPIO_CRL_MODE1_0 | GPIO_CRL_MODE1_1);   
-	GPIOA->CRL &= ~(GPIO_CRL_CNF1_0 | GPIO_CRL_CNF1_1);   
-
-	// PORT A | PIN 2 | INPUT MODE | ANALOG INPUT
-	GPIOA->CRL &= ~(GPIO_CRL_MODE2_0 | GPIO_CRL_MODE2_1);   
-	GPIOA->CRL &= ~(GPIO_CRL_CNF2_0 | GPIO_CRL_CNF2_1);   
-
-	// PORT A | PIN 4 | OUTPUT MODE | MAX SPEED = 50MHz | PUSH-PULL
-	GPIOA->CRL |= GPIO_CRL_MODE4;   
-	GPIOA->CRL &= ~(GPIO_CRL_CNF4);   
-
-	// PORT A | PIN 5 | OUTPUT MODE | MAX SPEED = 50MHz | PUSH-PULL
-	GPIOA->CRL |= GPIO_CRL_MODE5;   
-	GPIOA->CRL &= ~(GPIO_CRL_CNF5);   
+	// CONFIGURE PORT C PIN 13 -> ONBOARD LED
+	RCC -> APB2ENR |= RCC_APB2ENR_IOPCEN;
+	GPIOC -> CRH |= GPIO_CRH_MODE13;
+	GPIOC -> CRH &= ~(GPIO_CRH_CNF13);
 
 	
-	// PORT B | PIN 6 | OUTPUT MODE | MAX SPEED = 50MHz | ALTERNATE FUNCTION
-	GPIOB->CRL |= GPIO_CRL_MODE6;   
+	//Enable Clocks:
+	RCC->APB2ENR |= RCC_APB2ENR_IOPAEN;   //Enable Clock for Port A
+	RCC->APB2ENR |= RCC_APB2ENR_IOPBEN;   //Enable Clock for Port B
+	RCC->APB2ENR |= RCC_APB2ENR_AFIOEN;   //Enable Alternate Function
+
+	//Setup PA4:
+	GPIOA->CRL |= GPIO_CRL_MODE4;   //OUTPUT Mode 50Mhz
+	GPIOA->CRL &= ~(GPIO_CRL_CNF4);   //Output Push-Pull
+
+	//Setup PA5:
+	GPIOA->CRL |= GPIO_CRL_MODE5;   //OUTPUT Mode 50Mhz
+	GPIOA->CRL &= ~(GPIO_CRL_CNF5);   //Output Push-Pull
+
+	//Setup PB6:
+	GPIOB->CRL |= GPIO_CRL_MODE6;   //OUTPUT Mode 50Mhz
+	//Enable AF Mode:
 	GPIOB->CRL |= GPIO_CRL_CNF6_1;
 	GPIOB->CRL &= ~(GPIO_CRL_CNF6_0);
 
-	// PORT B | PIN 7 | OUTPUT MODE | MAX SPEED = 50MHz | ALTERNATE FUNCTION
-	GPIOB->CRL |= GPIO_CRL_MODE7;  
+	//Setup PB7:
+	GPIOB->CRL |= GPIO_CRL_MODE7;   //OUTPUT Mode 50Mhz
+	//Enable AF Mode:
 	GPIOB->CRL |= GPIO_CRL_CNF7_1;
 	GPIOB->CRL &= ~(GPIO_CRL_CNF7_0);
+
+	//PA10 Setup: (UART Rx)
+	GPIOA->CRH &= ~(GPIO_CRH_MODE10);   //INPUT Mode (00)
+	GPIOA->CRH |= GPIO_CRH_CNF10;   //Input with pull-up/pull-down (10)
+	GPIOA->CRH &= ~(GPIO_CRH_CNF10_0);
+
+	//PB4 Setup:
+	//Disable SWD & JTAG:
+	AFIO->MAPR |= AFIO_MAPR_SWJ_CFG_2;
+	AFIO->MAPR &= ~(AFIO_MAPR_SWJ_CFG_1 | AFIO_MAPR_SWJ_CFG_0);
+	GPIOB->CRL |= (GPIO_CRL_MODE4);   //OUTPUT Mode (11)
+	GPIOB->CRL &= ~(GPIO_CRL_CNF4);   //Output Push-Pull (00)
+	GPIOB->BRR = 1 << (4);   //Mandatory turn off
 }
 
-void PWM_init()
+void Timer_Initialize()
 {
-	
-	RCC->APB1ENR |= RCC_APB1ENR_TIM4EN;   // TIMER 4 ENABLE
-	TIM4->CCER |= TIM_CCER_CC1E | TIM_CCER_CC2E; // CHANNEL 1 & CHANNEL 2 -> OUTPUT
-	TIM4->CR1 |= TIM_CR1_ARPE;   // ENABLE ARPE | ARPE -> AUTO PRE-LOAD ENABLE
+	RCC->APB1ENR |= RCC_APB1ENR_TIM4EN;   //Enable Timer4
+	TIM4->CCER |= TIM_CCER_CC1E | TIM_CCER_CC2E; //Enable Channel 1 and 2 as OUTPUT
+	TIM4->CR1 |= TIM_CR1_ARPE;   //Enable Auto Re-Load Preload (ARPE)
 
-	TIM4->CCMR1 |= TIM_CCMR1_OC1PE;   // CHANNEL 1 PRELOAD ENABLE
-	TIM4->CCMR1 |= TIM_CCMR1_OC2PE;   // CHANNEL 2 PRELOAD ENABLE
-	
-	// OUPUT COMPARE 1 MODE SET AS PWM MODE 1
+	TIM4->CCMR1 |= TIM_CCMR1_OC1PE;   //Enable Preload for Channel 1
+	TIM4->CCMR1 |= TIM_CCMR1_OC2PE;   //Enable Preload for Channel 2
+
+	//PWM Mode 1 for Channel 1:
 	TIM4->CCMR1 |= (TIM_CCMR1_OC1M_2) | (TIM_CCMR1_OC1M_1);
 	TIM4->CCMR1 &= ~(TIM_CCMR1_OC1M_0);
-	
-	// OUPUT COMPARE 2 MODE SET AS PWM MODE 1
+	//PWM Mode 1 for Channel 2:
 	TIM4->CCMR1 |= (TIM_CCMR1_OC2M_2) | (TIM_CCMR1_OC2M_1);
 	TIM4->CCMR1 &= ~(TIM_CCMR1_OC2M_0);
 
-	TIM4->PSC = 1; // PRESCALAR
-	TIM4->ARR = 4095;  // AUTO-RELOAD VALUE -> (2^16 - 1)  
-	TIM4->CCR1 = 0; // CAPTURE/COMPARE REGISTERS
+	TIM4->PSC = 1;   //freq/1 = 8 Mhz
+	TIM4->ARR = 8000;
+	TIM4->CCR1 = 0;
 	TIM4->CCR2 = 0;
 
-	TIM4->EGR |= TIM_EGR_UG;   // BEFORE STARTING TIMER -> INITIALIZE ALL REGISTERS
-	TIM4->CR1 |= TIM_CR1_CEN;   // COUNTER ENABLE
+	TIM4->EGR |= TIM_EGR_UG;   //Update Registers
+	TIM4->CR1 |= TIM_CR1_CEN;   //Start Counting
+}
+
+void UART_Initilaize()
+{
+	/*
+    	//PA9(Tx) PA10(Rx)
+	RCC->APB2ENR |= RCC_APB2ENR_USART1EN;   //UART1 Enable, Clk freq = 8Mhz
+	//Setting up Baud Rate:
+	USART1->BRR |= 4<<4 | 5<<0;   //Gives 115200 Baud Rate(approx.) Register Value = (8MHz)/(16 * Reqd. Baud Rate) = 4.5
+	//              Rx Enable      Tx Enable	  UART Enable
+	USART1->CR1 |= (USART_CR1_RE | USART_CR1_TE | USART_CR1_UE);
+	*/
+	
+	
+	// CONFIGURE UART | TX -> A9 | RX -> A10
+	RCC ->APB2ENR |= RCC_APB2ENR_USART1EN;
+
+	// RX - A10 | FLOATING INPUT
+	GPIOA -> CRH &= ~(GPIO_CRH_MODE10 | GPIO_CRH_CNF10_1);
+	GPIOA -> CRH |= GPIO_CRH_CNF10_0;
+	
+	// TX - A9 | ALTERNATE OUTPUT PUSH-PULL
+	GPIOA -> CRH &= ~GPIO_CRH_CNF9_0;
+	GPIOA -> CRH |= GPIO_CRH_CNF9_1 | GPIO_CRH_MODE9_1;
+	
+	// BAUD RATE
+	USART1 -> BRR |= 0x271; // 115200
+	
+	// CONTROL REGISTER | USART ENABLE | TRANSMIT ENABLE | RECEIVE ENABLE
+	USART1 -> CR1 |= USART_CR1_UE | USART_CR1_TE | USART_CR1_RE; 
 	
 }
 
-unsigned int ADC_read(int k)
-{
-	int Joyval = 0;
-	
-	Joyval = samples[k];
-	
-	if(k == 0)
-	{
-		Joyval = mapped(Joyval, 0, 4095, -4095, 4095);
-	}
-		
 
+void Drive(int DL, int DR, int a, int b, int p, int q, int X, int Y, float gear)
+{
+	if (DL == 1)
+		GPIOA->BSRR |= 1 << 4;   //Turn on LEFT LED
+	else
+		GPIOA->BRR |= 1 << 4;   //Turn off LEFT LED
+
+	if (DR == 1)
+		GPIOA->BSRR |= 1 << 5;   //Turn on RIGHT LED
+	else
+		GPIOA->BRR |= 1 << 5;   //Turn off RIGHT LED
+
+	TIM4->CCR1 = (uint32_t) abs(abs(a*X) - abs(b*Y))*(gear*0.1);   //Left PWM
+	TIM4->CCR2 = (uint32_t) abs(abs(p*X) - abs(q*Y))*(gear*0.1);   //Right PWM
+}
+
+void MotorCode(int x, int y, float g)
+{
+//void Drive(int DL, int DR, int a, int b, int p, int q, int X, int Y, int g)
+
+	if (abs(x) < 20 && abs(y) < 20)   //No Motion
+		Drive(0,0,0,0,0,0,0,0,0);
+
+	else if(abs(x) < 10 && y < 0)   //Full Backward
+		Drive(0,0,0,1,0,1,x,y,g);
+
+	else if(abs(x) < 10 && y > 0)   //Full Forward
+		Drive(1,1,0,1,0,1,x,y,g);
+
+	else if (x < 0 && abs(y) <= 10)   //Spot Turn Left
+		Drive(0,1,1,0,1,0,x,y,g);
+
+	else if (x > 0 && abs(y) <= 10)   //Spot Turn Right
+		Drive(1,0,1,0,1,0,x,y,g);
+
+	else if(x > 0 && y > 0 && x > y)   //Octet 1
+		Drive(1,0,1,0,1,1,x,y,g);
+
+	else if(x > 0 && y > 0 && x < y)   //Octet 2
+		Drive(1,1,0,1,1,1,x,y,g);
+
+	else if(x < 0 && y > 0 && abs(x) < y)   //Octet 3
+		Drive(1,1,1,1,0,1,x,y,g);
+
+	else if(x < 0 && y > 0 && abs(x) >= y)   //Octet 4
+		Drive(0,1,1,1,1,0,x,y,g);
+
+	else if(x < 0 && y < 0 && abs(x) > abs(y))   //Octet 5
+	 	Drive(0,1,1,0,1,1,x,y,g);
+
+	else if(x < 0 && y < 0 && abs(x) < abs(y))   //Octet 6
+	 	Drive(0,0,0,1,1,1,x,y,g);
+
+	else if(x > 0 && y < 0 && abs(x) < abs(y))   //Octet 7
+	 	Drive(0,0,1,1,0,1,x,y,g);
+
+	else if(x > 0 && y < 0 && abs(x) > abs(y))   //Octet 8
+	 	Drive(1,0,1,1,1,0,x,y,g);
+
+	//Test Drive:
+	//Drive(1,1,1,0,0,1,x,y,g);
+}
+uint8_t getuval()   //Reads UART Values
+{
+	uint8_t data;
+	count=0;
+	if(flag==1)
+	{	
+		return 0;
+	}
+	while(count<1000 && !(USART1->SR & USART_SR_RXNE))
+	{
+	}
+	if(count>=1000)
+	{
+		flag=1;
+	}
 	else
 	{
-		Joyval = mapped(Joyval, 0, 4095, 4095, -4095);
-		
-		//  BUFFERS FOR JOYSTICK EDGES		
-		if (Joyval < -3950)
-		{
-			Joyval = -4095;
-		}
-		
-		if (Joyval > 3950)
-		{
-			Joyval = 4095;
-		}
-			
+		flag=0;
+		data = USART1->DR;
+	 return data;
 	}
 	
-	// BUFFERS FOR JOYSTICVK CENTRES
-	//if (abs(Joyval) < 200)
-	//	Joyval = 0;
-	//
-	return Joyval;
 }
-
-void ADC_Init()
+int main()
 {
-	GPIOA->BSRR |= 1 << 4 | 1 << 5;
-	RCC->CFGR |= RCC_CFGR_ADCPRE_DIV6;   //  PRESCLAR -> 72MHz/6
-	RCC->APB2ENR |= RCC_APB2ENR_ADC1EN;   // ADC1 CLOCK ENABLE
-	RCC->AHBENR |= RCC_AHBENR_DMA1EN;   // DMA1 CLOCK ENABLE
-
-	// SAMPLING RATES FOR CHANNEL 1 & CHANNEL 2
-	ADC1->SMPR2 |= ADC_SMPR2_SMP1_2 | ADC_SMPR2_SMP1_1 | ADC_SMPR2_SMP1_0;   
-	ADC1->SMPR2 |= ADC_SMPR2_SMP2_2 | ADC_SMPR2_SMP2_1 | ADC_SMPR2_SMP2_0; 
-  
-	// SET CHANNEL 1 & 2 | SET SEQUENCE
-	ADC1->SQR1 |= 1 << 20;   
-	ADC1->SQR3 |= ADC_SQR3_SQ1_0;
-	ADC1->SQR3 |= ADC_SQR3_SQ2_1;
-	
-	ADC1->CR1 |= ADC_CR1_SCAN;   // SCAN MODE ENABLE
-	ADC1->CR2 |= ADC_CR2_DMA;   // DMA MODE ENABLE
-
-	
-	// DMA CONFIGURATIONS
-	
-	DMA1_Channel1->CPAR = (uint32_t) (&(ADC1->DR));   
-	DMA1_Channel1->CMAR = (uint32_t) samples;   
-	DMA1_Channel1->CNDTR = 2;   
-
-	DMA1_Channel1->CCR |= DMA_CCR1_CIRC;   
-	DMA1_Channel1->CCR |= DMA_CCR1_MINC;   
-	DMA1_Channel1->CCR |= DMA_CCR1_PSIZE_0;   
-	DMA1_Channel1->CCR |= DMA_CCR1_MSIZE_0;   
-
-	DMA1_Channel1->CCR |= DMA_CCR1_EN;   // DMA1 ENABLE
-	
-	ADC1->CR2 |= ADC_CR2_ADON;   // TURN ADC ON
-	ADC1->CR2 |= ADC_CR2_CONT;   // ADC CONTINUOS MODE
-		
-	ADC1->CR2 |= ADC_CR2_ADON; // TURN ADC ON AGAIN | GIVEN IN REF MANUAL
-	ADC1->CR2 |= ADC_CR2_CAL; // RUN CALIBRATION
-}
-
-
-
-
-int main(void)
-{
-	
-	Ports();
-	PWM_init();
-	ADC_Init();
-	
-	
-	
+	GPIO_Initialize();
+	Timer_Initialize();
+  UART_Initilaize();
+	SysTick_Config(SystemCoreClock/1000);
+	int x = 0, y = 0;
+  int trash = 0;
+	float gear = 1.0;
 	while (1)
-	{
-			// MAPPED X AXIS VALUE
-		x = ADC_read(0);   
-		
-		// MAPPED Y AXIS VALUE
-		y= ADC_read(1);   
-
-		
+  	{
 			
-	
-		
-		
-		
-		//x = x/4;
-		//y = y/4;
-		
-		int X_val = mapped(y, 0, 4095, -4095, 4095);
-		int Y_val = mapped(x, 0, 4095, -4095, 4095);
-		
-		//int X_val = y-512;
-		//int Y_val = x-512;
-		
-		//X_val = X_val/4;
-		//Y_val = Y_val/4;
-		
-		//	int X_val = y;
-		//	int Y_val = x;
-		
-		
-		
-		
-		
-		
-		float theta = atan2f(Y_val,X_val);
-		
-		int remap = abs(abs(X_val)-abs(Y_val));
-		
-		
-		
-		if(abs(X_val)<150&&abs(Y_val)<150)                    //Buffer around centre
+		//Read LAN2UART Values
+      flag=0;
+		if(getuval() == 'm')
 		{
-			TIM4->CCR1 = 0;
-			TIM4->CCR2 = 0;
-			GPIOA->BRR |= 1 << 4;
-			GPIOA->BRR |= 1 << 5;
-			dms(10);
+			gear = (int) ((getuval() - '0') + 1);   //Get gear value
+			if(getuval() == 's')
+			{
+				x = (getuval()-'0')*10000 + (getuval()-'0')*1000 + (getuval()-'0')*100 + (getuval()-'0')*10 + (getuval()-'0');   //x value
+			}
+			if(getuval() == 'f')
+			{
+				y = (getuval()-'0')*10000 + (getuval()-'0')*1000 + (getuval()-'0')*100 + (getuval()-'0')*10 + (getuval()-'0');   //y value
+			}
+			trash = getuval();   //This is actually Mast CAM values but we're ignoring it for now
 		}
-		
-		else if(theta>0.70f&&theta<0.87f)		                //diagonal 1
+		else
 		{
-			
-			TIM4->CCR2 = 0;
-			GPIOA->BRR |= 1 << 5;
-			TIM4->CCR1 = abs(X_val);
-			//GPIOA->BSRR |= 1 << 4;
-			//_delay_us(5);
-			
+			trash = trash + 1 - 1;   //Random values
 		}
-		
-		else if(theta>2.23f&&theta<2.47f)                   //diagonal 2
+		if(flag==1)
 		{
-			TIM4->CCR1 = 0;
-			GPIOA->BRR |= 1 << 4;
-			TIM4->CCR2 = abs(X_val);
-			//GPIOA->BSRR |= 1 << 5;
-			//_delay_us(5);
+			x=8000;
+			y=8000;
 		}
-		
-		else if(theta>-2.40f&&theta<-2.30f)                 //diagonal 3
-		{
-			TIM4->CCR2 = 0;
-			GPIOA->BRR |= 1 << 4;
-			TIM4->CCR1 = abs(X_val);
-			//GPIOA->BSRR |= 1 << 4;
-			//_delay_us(5);
+		x = x - 8000;
+		y = y - 8000;
+
+		if(abs(x) < 500)
+			x = 0;
+		if(abs(y) < 500)
+			y = 0;
+
+		MotorCode(x, y, gear);   //Run MotorCode
+
 		}
-		
-		else if(theta>-0.90f&&theta<-0.60f)                 //diagonal 4
-		{
-			TIM4->CCR1 = 0;
-			GPIOA->BRR |= 1 << 5;
-			TIM4->CCR2 = abs(X_val);
-			//GPIOA->BSRR |= 1 << 5;
-		}
-		
-		else if(theta>0.0f&&theta<0.79f)                 //Octet 1
-		{
-			
-			//_delay_us(30);
-			
-			//analogWrite(LeftF,X_val);
-			TIM4->CCR1 = X_val;
-			GPIOA->BSRR |= 1 << 4;
-			
-			//analogWrite(RightB,remap);
-			TIM4->CCR2 = remap;
-			GPIOA->BRR |= 1 << 5;
-			
-			//_delay_us(5);
-			
-		}
-
-
-		else if(theta>0.79f&&theta<1.57f)                 //Octet 2
-		{
-			
-			//_delay_us(30);
-			
-			//analogWrite(LeftF,Y_val);
-			TIM4->CCR1 = Y_val;
-			GPIOA->BSRR |= 1 << 4;
-			
-			//analogWrite(RightF,remap);
-			if(theta>0.70f&&theta<0.87f)
-			TIM4->CCR2 = 0;
-			else
-			TIM4->CCR2 = remap;
-			GPIOA->BSRR |= 1 << 5;
-			
-			//_delay_us(5);
-
-			
-			
-		}
-
-		else if(theta>1.57f&&theta<2.36f)                   //Octet 3
-		{
-			
-			//_delay_us(30);
-			
-			//analogWrite(LeftF,remap);
-			
-			if(theta>2.23f&&theta<2.47f)
-			TIM4->CCR1 = 0;
-			else
-			TIM4->CCR1 = remap;
-			
-			GPIOA->BSRR |= 1 << 4;
-			
-			//analogWrite(RightF,Y_val);
-			TIM4->CCR2 = Y_val;
-			GPIOA->BSRR |= 1 << 5;
-			
-			//_delay_us(5);
-			
-			
-		}
-
-		else if(theta>2.36f&&theta<3.14f)                   //Octet 4
-		{
-			//_delay_us(30);
-			
-			//analogWrite(LeftB,remap);
-			
-			if(theta>=2.23f&&theta<=2.47f)
-			TIM4->CCR1 = 0;
-			else
-			TIM4->CCR1 = remap;
-			
-			GPIOA->BRR |= 1 << 4;
-			
-			//analogWrite(RightF,abs(X_val));
-			TIM4->CCR2 = abs(X_val);
-			GPIOA->BSRR |= 1 << 5;
-			
-
-			//_delay_us(5);
-			
-			
-		}
-
-		else if(theta>-3.14f&&theta<=-2.36f)                //Octet 5
-		{
-			//_delay_us(30);
-			
-			//analogWrite(LeftB,abs(X_val));
-			TIM4->CCR1 = abs(X_val);
-			GPIOA->BRR |= 1 << 4;
-			
-			//analogWrite(RightF,remap);
-			
-			if(theta>-2.40f&&theta<-2.30f)
-			TIM4->CCR2 = 0;
-			else
-			TIM4->CCR2 = remap;
-			GPIOA->BSRR |= 1 << 5;
-			
-			
-			//_delay_us(5);
-			
-			
-		}
-
-		else if(theta>-2.36f&&theta<-1.57f)                   //Octet 6
-		{
-			
-			//	_delay_us(30);
-			
-			//analogWrite(LeftB,abs(Y_val));
-			TIM4->CCR1 = abs(Y_val);
-			GPIOA->BRR |= 1 << 4;
-			
-			
-			//analogWrite(RightB,remap);
-			TIM4->CCR2 = remap;
-			GPIOA->BRR |= 1 << 5;
-
-			
-			
-			//_delay_us(5);
-			
-			
-		}
-
-		else if(theta>-1.57f&&theta<-0.79f)                     //Octet 7
-		{
-			
-			//_delay_us(30);
-			
-			//analogWrite(LeftB,remap);
-			
-			//if(remap<40)
-			//TIM4->CCR1 = 0;
-			//else
-			TIM4->CCR1 = remap;
-			
-			
-			GPIOA->BRR |= 1 << 4;
-			
-			//analogWrite(RightB,abs(Y_val));
-			TIM4->CCR2 = abs(Y_val);
-			GPIOA->BRR |= 1 << 5;
-
-			//_delay_us(5);
-			
-		}
-
-		else if(theta>-0.79f&&theta<0.0f)                       //Octet 8
-		{
-			
-			//responsible for led off at diagonal
-			//_delay_us(30);
-			
-			//analogWrite(LeftF,remap);
-			
-			if(theta>-0.90f&&theta<-0.60f)
-			TIM4->CCR1 = 0;
-			else
-			TIM4->CCR1 = remap;
-			
-			
-			GPIOA->BSRR |= 1 << 4;
-			
-			//analogWrite(RightB,X_val);
-			TIM4->CCR2 = X_val;
-			GPIOA->BRR |= 1 << 5;
-
-			//_delay_us(5);
-			
-				
-		}
-		
-		
-	}
-
 }
