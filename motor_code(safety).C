@@ -3,6 +3,11 @@
 #include <stdarg.h>
 #include <string.h>
 #include <stdio.h>
+void MotorCode(int x, int y, float gear);
+void GPIO_Initialize(void);
+void Timer_Initialize(void);
+void UART_Initilaize(void);
+uint8_t getuval(void); 
 volatile static int count=0;
 int flag=0;
 void SysTick_Handler(void)
@@ -119,68 +124,126 @@ void UART_Initilaize()
 	
 }
 
-
-void Drive(int DL, int DR, int a, int b, int p, int q, int X, int Y, float gear)
+void MotorCode(int x, int y, float gear)
 {
-	if (DL == 1)
-		GPIOA->BSRR |= 1 << 4;   //Turn on LEFT LED
-	else
-		GPIOA->BRR |= 1 << 4;   //Turn off LEFT LED
+// STOP
+	if (abs(x) < 20 && abs(y) < 20)
+	{
+		GPIOA->BRR |= 1 << 4;
+		GPIOA->BRR |= 1 << 5;
+		TIM4->CCR1 = 0;  //Left SPEED
+	  TIM4->CCR2 = 0;   //Right SPEED
+	}		
+	
+  
+	// FORWARD MAX
+	else if(abs(x) < 10 && y > 0)
+	{
+		GPIOA->BSRR |= 1 << 4;
+		GPIOA->BSRR |= 1 << 5;
+		TIM4->CCR1 = ((uint32_t) abs(y)*(gear*0.1)) ;  //Left SPEED
+	  TIM4->CCR2 = ((uint32_t) abs(y)*(gear*0.1));   //Right SPEED
+		
+	}	
+	
+	// BACKWARD MAX
+	else if(abs(x) < 10 && y < 0) 
+	{
+		GPIOA->BRR |= 1 << 4;
+		GPIOA->BRR |= 1 << 5;
+		TIM4->CCR1 = (uint32_t) (abs(y)*(gear*0.1));  //Left SPEED
+	  TIM4->CCR2 = (uint32_t)  (abs(y)*(gear*0.1));   //Right SPEED
+	}	
+	
+	// SPOT LEFT
+	else if (x < 0 && abs(y) <= 10) 
+	{
+		GPIOA->BRR |= 1 << 4;
+		GPIOA->BSRR |= 1 << 5;
+		TIM4->CCR1 = (uint32_t) (abs(x)*(gear*0.1));  //Left SPEED
+	  TIM4->CCR2 = (uint32_t) (abs(x)*(gear*0.1));   //Right SPEED
+	}		
+	
+	// SPOT RIGHT
+	else if (x > 0 && abs(y) <= 10)
+	{
+		GPIOA->BSRR |= 1 << 4;
+		GPIOA->BRR |= 1 << 5;
+		TIM4->CCR1 = (uint32_t) (abs(x)*(gear*0.1));		//Left SPEED
+	  TIM4->CCR2 = (uint32_t) (abs(x)*(gear*0.1));   //Right SPEED		
+	}		
+		
+	// OCTET 1
+	else if(x > 0 && y > 0 && x > y) 
+	{
+		GPIOA->BSRR |= 1 << 4;
+		GPIOA->BRR |= 1 << 5;
+	  TIM4->CCR1 = (uint32_t) (abs(x)*(gear*0.1));   //Left SPEED
+	  TIM4->CCR2 = (uint32_t) (abs(abs(x) - abs(y))*(gear*0.1));   //Right SPEED
+	}		
 
-	if (DR == 1)
-		GPIOA->BSRR |= 1 << 5;   //Turn on RIGHT LED
-	else
-		GPIOA->BRR |= 1 << 5;   //Turn off RIGHT LED
+	// OCTET 2
+	else if(x > 0 && y > 0 && x < y) 
+	{
+		GPIOA->BSRR |= 1 << 4;
+		GPIOA->BSRR |= 1 << 5;
+		TIM4->CCR1 = (uint32_t) (abs(y)*(gear*0.1));   //Left SPEED
+	  TIM4->CCR2 = (uint32_t) (abs(abs(x) - abs(y))*(gear*0.1));   //Right SPEED
+	}		
 
-	TIM4->CCR1 = (uint32_t) abs(abs(a*X) - abs(b*Y))*(gear*0.1);   //Left PWM
-	TIM4->CCR2 = (uint32_t) abs(abs(p*X) - abs(q*Y))*(gear*0.1);   //Right PWM
-}
+	// OCTET 3
+	else if(x < 0 && y > 0 && abs(x) < y)
+	{
+	  GPIOA->BSRR |= 1 << 4;
+		GPIOA->BSRR |= 1 << 5;
+		TIM4->CCR1 = (uint32_t) (abs(abs(x) - abs(y))*(gear*0.1));   //Left SPEED
+	  TIM4->CCR2 = (uint32_t) (abs(y)*(gear*0.1));   //Right SPEED  
+	}
 
-void MotorCode(int x, int y, float g)
-{
-//void Drive(int DL, int DR, int a, int b, int p, int q, int X, int Y, int g)
+  // OCTET 4
+	else if(x < 0 && y > 0 && abs(x) >= y) 
+	{
+		GPIOA->BRR |= 1 << 4;
+		GPIOA->BSRR |= 1 << 5;
+		TIM4->CCR1 = (uint32_t) (abs(abs(x) - abs(y))*(gear*0.1));   //Left SPEED
+	  TIM4->CCR2 = (uint32_t) (abs(x)*(gear*0.1));   //Right SPEED
+	}	
 
-	if (abs(x) < 20 && abs(y) < 20)   //No Motion
-		Drive(0,0,0,0,0,0,0,0,0);
+  // OCTET 5	
+	else if(x < 0 && y < 0 && abs(x) > abs(y))
+	{
+		GPIOA->BRR |= 1 << 4;
+		GPIOA->BSRR |= 1 << 5;
+		TIM4->CCR1 = (uint32_t) (abs(x)*(gear*0.1));   //Left SPEED
+	  TIM4->CCR2 = (uint32_t) (abs(abs(x) - abs(y))*(gear*0.1));   //Right SPEED
+	}
+	
+	// OCTET 6
+	else if(x < 0 && y < 0 && abs(x) < abs(y))
+	{
+		GPIOA->BRR |= 1 << 4;
+		GPIOA->BRR |= 1 << 5;
+		TIM4->CCR1 = (uint32_t) (abs(y)*(gear*0.1));   //Left SPEED
+	  TIM4->CCR2 = (uint32_t) (abs(abs(x) - abs(y))*(gear*0.1));   //Right SPEED
+	}
+	
+	// OCTET 7
+	else if(x > 0 && y < 0 && abs(x) < abs(y)) 
+	{
+		GPIOA->BRR |= 1 << 4;
+		GPIOA->BRR |= 1 << 5;
+		TIM4->CCR1 = (uint32_t) (abs(abs(x) - abs(y))*(gear*0.1));   //Left SPEED
+	  TIM4->CCR2 = (uint32_t) (abs(y)*(gear*0.1));   //Right SPEED
+	}
 
-	else if(abs(x) < 10 && y < 0)   //Full Backward
-		Drive(0,0,0,1,0,1,x,y,g);
-
-	else if(abs(x) < 10 && y > 0)   //Full Forward
-		Drive(1,1,0,1,0,1,x,y,g);
-
-	else if (x < 0 && abs(y) <= 10)   //Spot Turn Left
-		Drive(0,1,1,0,1,0,x,y,g);
-
-	else if (x > 0 && abs(y) <= 10)   //Spot Turn Right
-		Drive(1,0,1,0,1,0,x,y,g);
-
-	else if(x > 0 && y > 0 && x > y)   //Octet 1
-		Drive(1,0,1,0,1,1,x,y,g);
-
-	else if(x > 0 && y > 0 && x < y)   //Octet 2
-		Drive(1,1,0,1,1,1,x,y,g);
-
-	else if(x < 0 && y > 0 && abs(x) < y)   //Octet 3
-		Drive(1,1,1,1,0,1,x,y,g);
-
-	else if(x < 0 && y > 0 && abs(x) >= y)   //Octet 4
-		Drive(0,1,1,1,1,0,x,y,g);
-
-	else if(x < 0 && y < 0 && abs(x) > abs(y))   //Octet 5
-	 	Drive(0,1,1,0,1,1,x,y,g);
-
-	else if(x < 0 && y < 0 && abs(x) < abs(y))   //Octet 6
-	 	Drive(0,0,0,1,1,1,x,y,g);
-
-	else if(x > 0 && y < 0 && abs(x) < abs(y))   //Octet 7
-	 	Drive(0,0,1,1,0,1,x,y,g);
-
-	else if(x > 0 && y < 0 && abs(x) > abs(y))   //Octet 8
-	 	Drive(1,0,1,1,1,0,x,y,g);
-
-	//Test Drive:
-	//Drive(1,1,1,0,0,1,x,y,g);
+	// OCTET 8
+	else if(x > 0 && y < 0 && abs(x) > abs(y)) 
+	{
+		GPIOA->BSRR |= 1 << 4;
+		GPIOA->BRR |= 1 << 5;
+		TIM4->CCR1 = (uint32_t) (abs(abs(x) - abs(y))*(gear*0.1));   //Left SPEED
+	  TIM4->CCR2 = (uint32_t) (abs(x)*(gear*0.1));   //Right SPEED
+	}
 }
 uint8_t getuval()   //Reads UART Values
 {
