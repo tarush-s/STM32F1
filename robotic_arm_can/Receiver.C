@@ -49,7 +49,6 @@ CAN_FilterTypeDef sFilterConfig;			//struct containing filter settings
 CAN_RxHeaderTypeDef RxMessage;	 //struct for recieved data frame
 CAN_TxHeaderTypeDef TxMessage;   // struct for transmitted dataframe
 uint8_t rxData[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };	//array for recieved data (8 bytes)
-uint8_t txData[8] = { 10, 0, 0, 0, 0, 0, 0, 0 };
 uint32_t usedmailbox;
 /* USER CODE END PV */
 
@@ -120,8 +119,7 @@ int main(void)
 
 	HAL_CAN_ConfigFilter(&hcan, &sFilterConfig);	//commits filter settings
 	HAL_CAN_Start(&hcan);
-	int i;
-
+    float pitch;
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -132,18 +130,10 @@ int main(void)
 						{
 					HAL_CAN_GetRxMessage(&hcan, CAN_RX_FIFO0, &RxMessage, rxData);//stores the data frame in RxMessage struct, stores data in rsData array
 				}
-		i=rxData[0];
-		printf("%d\n",i);
 
-				if (rxData[0])
-				{
-					HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_SET);		//LED ON
-					HAL_Delay(500);
-					HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_RESET);	//LED OFF
-					HAL_Delay(500);
-					rxData[0] = 0;							//reset data
-				}
-
+		pitch = ((rxData[0] & 0xFF000000)|(rxData[1] & 0x00FF0000)|(rxData[2] & 0x0000FF00)|(rxData[3] & 0x000000FF));
+		printf("%d\n",(int) pitch);
+		HAL_Delay(100);
 
     /* USER CODE END WHILE */
 
@@ -243,7 +233,7 @@ static void MX_USART1_UART_Init(void)
 
   /* USER CODE END USART1_Init 1 */
   huart1.Instance = USART1;
-  huart1.Init.BaudRate = 9600;
+  huart1.Init.BaudRate = 115200;
   huart1.Init.WordLength = UART_WORDLENGTH_8B;
   huart1.Init.StopBits = UART_STOPBITS_1;
   huart1.Init.Parity = UART_PARITY_NONE;
