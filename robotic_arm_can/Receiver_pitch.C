@@ -49,6 +49,7 @@ CAN_FilterTypeDef sFilterConfig;			//struct containing filter settings
 CAN_RxHeaderTypeDef RxMessage;	 //struct for recieved data frame
 CAN_TxHeaderTypeDef TxMessage;   // struct for transmitted dataframe
 uint8_t rxData[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };	//array for recieved data (8 bytes)
+uint8_t txData[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
 uint32_t usedmailbox;
 /* USER CODE END PV */
 
@@ -119,7 +120,8 @@ int main(void)
 
 	HAL_CAN_ConfigFilter(&hcan, &sFilterConfig);	//commits filter settings
 	HAL_CAN_Start(&hcan);
-    float pitch;
+
+    int pitch=0;
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -131,8 +133,9 @@ int main(void)
 					HAL_CAN_GetRxMessage(&hcan, CAN_RX_FIFO0, &RxMessage, rxData);//stores the data frame in RxMessage struct, stores data in rsData array
 				}
 
-		pitch = ((rxData[0] & 0xFF000000)|(rxData[1] & 0x00FF0000)|(rxData[2] & 0x0000FF00)|(rxData[3] & 0x000000FF));
-		printf("%d\n",(int) pitch);
+
+		pitch = ((rxData[0])|(rxData[1] << 8)|(rxData[2] << 16)|(rxData[3] << 24));
+		printf("%d \n",pitch);
 		HAL_Delay(100);
 
     /* USER CODE END WHILE */
